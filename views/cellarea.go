@@ -17,7 +17,7 @@ package views
 import (
 	"sync"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/8power/tcell/v2"
 )
 
 // CellModel models the content of a CellView.  The dimensions used within

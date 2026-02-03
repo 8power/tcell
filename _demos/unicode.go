@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gdamore/tcell/v2"
-	"github.com/gdamore/tcell/v2/encoding"
+	"github.com/8power/tcell/v2"
+	"github.com/8power/tcell/v2/encoding"
 )
 
 var row = 0

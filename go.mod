@@ -1,4 +1,4 @@
-module github.com/gdamore/tcell/v2
+module github.com/8power/tcell/v2
 
 go 1.24.0
 
@@ -9,9 +9,4 @@ require (
 	golang.org/x/sys v0.38.0
 	golang.org/x/term v0.37.0
 	golang.org/x/text v0.31.0
-)
-
-require (
-	github.com/mattn/go-sixel v0.0.5 // indirect
-	github.com/soniakeys/quant v1.0.0 // indirect
 )
