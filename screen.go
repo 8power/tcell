@@ -14,7 +14,9 @@
 
 package tcell
 
-import "sync"
+import (
+	"sync"
+)
 
 // Screen represents the physical (or emulated) screen.
 // This can be a terminal window or a physical console.  Platforms implement

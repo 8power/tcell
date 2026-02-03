@@ -2,7 +2,7 @@
 
 package screen
 
-import "github.com/gdamore/tcell/v2/terminfo"
+import "github.com/8power/tcell/v2/terminfo"
 
 func init() {
 

@@ -22,7 +22,7 @@ import (
 	"os"
 	"unicode/utf8"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/8power/tcell/v2"
 )
 
 var clipboard []byte

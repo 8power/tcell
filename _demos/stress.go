@@ -25,7 +25,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/8power/tcell/v2"
 )
 
 func main() {

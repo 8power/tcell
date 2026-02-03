@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/8power/tcell/v2"
 )
 
 func emitStr(s tcell.Screen, x, y int, style tcell.Style, str string) int {
