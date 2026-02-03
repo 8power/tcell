@@ -14,7 +14,10 @@
 
 package tcell
 
-import "sync"
+import (
+	"io"
+	"sync"
+)
 
 // Screen represents the physical (or emulated) screen.
 // This can be a terminal window or a physical console.  Platforms implement
@@ -317,6 +320,14 @@ func NewScreen() (Screen, error) {
 	} else {
 		return nil, e
 	}
+}
+
+func NewStreamingScreen(rw io.ReadWriter, winSize func() (int, int)) (Screen, error) {
+	tty := &streamingTty{
+		rw:      rw,
+		winSize: winSize,
+	}
+	return NewTerminfoScreenFromTty(tty)
 }
 
 // MouseFlags are options to modify the handling of mouse events.
