@@ -15,7 +15,6 @@
 package tcell
 
 import (
-	"io"
 	"sync"
 )
 
@@ -320,14 +319,6 @@ func NewScreen() (Screen, error) {
 	} else {
 		return nil, e
 	}
-}
-
-func NewStreamingScreen(rw io.ReadWriter, winSize func() (int, int)) (Screen, error) {
-	tty := &streamingTty{
-		rw:      rw,
-		winSize: winSize,
-	}
-	return NewTerminfoScreenFromTty(tty)
 }
 
 // MouseFlags are options to modify the handling of mouse events.
