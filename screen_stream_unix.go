@@ -7,10 +7,7 @@ import (
 	"io"
 )
 
-func NewStreamingScreen(rw io.ReadWriter, winSize func() (int, int)) (Screen, error) {
-	tty := &streamingTty{
-		rw:      rw,
-		winSize: winSize,
-	}
+func NewStreamingScreen(rw io.ReadWriter) (Screen, error) {
+	tty := NewStreamingTty(rw)
 	return NewTerminfoScreenFromTty(tty)
 }
