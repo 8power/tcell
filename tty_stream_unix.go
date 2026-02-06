@@ -9,24 +9,23 @@ import (
 )
 
 type streamingTty struct {
-	rw       io.ReadWriter // e.g. SSH channel
-	rwMutex  sync.Mutex    // mutex to protect access to rw
-	width    int           // character width handling
-	height   int           // character height handling
-	resizeQ  chan struct{} // channel to signal resize events
-	onResize func()        // callback for resize events
+	io.Closer // e.g. SSH channel
+	inPipe    <-chan []byte
+	outPipe   chan<- []byte
+	rwMutex   sync.Mutex // mutex to protect access to rw
+	width     int        // character width handling
+	height    int        // character height handling
+	onResize  func()     // callback for resize events
 }
 
-func NewStreamingTty(rw io.ReadWriter) Tty {
-
+func NewStreamingTty(in <-chan []byte, out chan<- []byte, closer io.Closer) Tty {
 	s := &streamingTty{
-		rw:      rw,
+		Closer:  closer,
+		inPipe:  in,
+		outPipe: out,
 		width:   80,
 		height:  24,
-		resizeQ: make(chan struct{}, 1), // buffered to avoid blocking
 	}
-	// Background goroutine to watch for resizes and invoke the callback
-	go s.resizeWatcher()
 	return s
 }
 
@@ -36,20 +35,27 @@ func (s *streamingTty) Fd() uintptr {
 }
 
 func (s *streamingTty) Read(p []byte) (int, error) {
-	return s.rw.Read(p)
+	data, ok := <-s.inPipe
+	if !ok {
+		return 0, io.EOF
+	}
+	n := copy(p, data)
+	return n, nil
 }
 
 func (s *streamingTty) Write(p []byte) (int, error) {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
-	return s.rw.Write(p)
+	buf := make([]byte, len(p))
+	copy(buf, p)
+	select {
+	case s.outPipe <- buf:
+		return len(p), nil
+	default:
+		return 0, io.ErrShortWrite
+	}
 }
 
 func (s *streamingTty) Close() error {
-	if c, ok := s.rw.(io.Closer); ok {
-		return c.Close()
-	}
-	return nil
+	return s.Closer.Close()
 }
 
 // Window size & signals (you adapt to the exact v2 Tty API):
@@ -76,11 +82,7 @@ func (s *streamingTty) SetSize(w, h int) {
 	s.height = h
 	s.rwMutex.Unlock()
 	if changed {
-		// Signal the resize event (non-blocking)
-		select {
-		case s.resizeQ <- struct{}{}:
-		default:
-		}
+		s.onResize() // Call the callback directly; it should be safe to do so.
 	}
 }
 
@@ -99,18 +101,5 @@ func (s *streamingTty) Start() error {
 }
 
 func (s *streamingTty) Stop() error {
-	close(s.resizeQ)
-	return nil
-}
-
-// Internal: watches resizeQ and invokes the registered callback.
-func (s *streamingTty) resizeWatcher() {
-	for range s.resizeQ {
-		s.rwMutex.Lock()
-		cb := s.onResize
-		s.rwMutex.Unlock()
-		if cb != nil {
-			cb()
-		}
-	}
+	return s.Close()
 }
