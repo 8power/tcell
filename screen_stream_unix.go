@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-func NewStreamingScreen(in <-chan []byte, out chan<- []byte, closer io.Closer) (Screen, error) {
+func NewStreamingScreen(in chan []byte, out chan []byte, closer io.Closer) (Screen, error) {
 	tty := NewStreamingTty(in, out, closer)
 	return NewTerminfoScreenFromTty(tty)
 }

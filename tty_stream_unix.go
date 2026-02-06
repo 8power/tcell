@@ -10,15 +10,15 @@ import (
 
 type streamingTty struct {
 	io.Closer // e.g. SSH channel
-	inPipe    <-chan []byte
-	outPipe   chan<- []byte
+	inPipe    chan []byte
+	outPipe   chan []byte
 	rwMutex   sync.Mutex // mutex to protect access to rw
 	width     int        // character width handling
 	height    int        // character height handling
 	onResize  func()     // callback for resize events
 }
 
-func NewStreamingTty(in <-chan []byte, out chan<- []byte, closer io.Closer) Tty {
+func NewStreamingTty(in chan []byte, out chan []byte, closer io.Closer) Tty {
 	s := &streamingTty{
 		Closer:  closer,
 		inPipe:  in,
