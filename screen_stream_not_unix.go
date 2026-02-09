@@ -5,12 +5,12 @@ package tcell
 
 import (
 	"fmt"
-	"io"
+	"net"
 )
 
 var ErrNotSupported = fmt.Errorf("streaming screen not supported on this platform")
 
-func NewStreamingScreen(rw io.ReadWriter, winSize func() (int, int)) (Screen, error) {
+func NewStreamingScreen(conn net.Conn) (Screen, error) {
 	// TBD: implement a Windows version if feasible.
 	return nil, ErrNotSupported
 }
