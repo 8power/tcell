@@ -86,7 +86,9 @@ func (s *streamingTty) SetSize(w, h int) {
 	s.height = h
 	s.rwMutex.Unlock()
 	if changed {
-		s.onResize() // Call the callback directly; it should be safe to do so.
+		if s.onResize != nil {
+			s.onResize() // Call the callback directly; it should be safe to do so.
+		}
 	}
 }
 
