@@ -16,6 +16,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/google/martian/log"
 )
 
 const (
@@ -198,12 +200,14 @@ func (t *TelnetIO) writeLoop() {
 		err := t.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if err != nil {
 			t.mtx.Unlock()
-			return
+			log.Errorf("Failed to set write deadline: %v", err)
+			continue
 		}
-		_, err = t.conn.Write(escapedData)
+		n, err := t.conn.Write(escapedData)
 		t.mtx.Unlock()
 		if err != nil {
-			return
+			log.Errorf("Failed to write to connection (%v): %v", n, err)
+			continue
 		}
 	}
 }
