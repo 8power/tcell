@@ -15,6 +15,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 const (
@@ -194,7 +195,12 @@ func (t *TelnetIO) writeLoop() {
 			}
 		}
 		t.mtx.Lock()
-		_, err := t.conn.Write(escapedData)
+		err := t.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+		if err != nil {
+			t.mtx.Unlock()
+			return
+		}
+		_, err = t.conn.Write(escapedData)
 		t.mtx.Unlock()
 		if err != nil {
 			return
