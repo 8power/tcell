@@ -5,6 +5,7 @@ package tcell
 
 import (
 	"io"
+	"net"
 	"sync"
 )
 
@@ -18,15 +19,18 @@ type streamingTty struct {
 	onResize  func()     // callback for resize events
 }
 
-func NewStreamingTty(in chan []byte, out chan []byte, closer io.Closer) Tty {
+func NewStreamingTty(in chan []byte, out chan []byte, conn net.Conn) (Tty, *TelnetIO) {
 	s := &streamingTty{
-		Closer:  closer,
-		inPipe:  in,
-		outPipe: out,
+		Closer:  conn,
+		inPipe:  make(chan []byte, 1024),
+		outPipe: make(chan []byte, 1024),
 		width:   80,
 		height:  24,
 	}
-	return s
+
+	tio := NewTelnetIO(conn, s)
+
+	return s, tio
 }
 
 func (s *streamingTty) Fd() uintptr {

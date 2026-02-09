@@ -4,10 +4,10 @@
 package tcell
 
 import (
-	"io"
+	"net"
 )
 
-func NewStreamingScreen(in chan []byte, out chan []byte, closer io.Closer) (Screen, error) {
-	tty := NewStreamingTty(in, out, closer)
+func NewStreamingScreen(in chan []byte, out chan []byte, conn net.Conn) (Screen, error) {
+	tty, _ := NewStreamingTty(in, out, conn)
 	return NewTerminfoScreenFromTty(tty)
 }
