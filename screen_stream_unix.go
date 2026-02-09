@@ -7,7 +7,7 @@ import (
 	"net"
 )
 
-func NewStreamingScreen(in chan []byte, out chan []byte, conn net.Conn) (Screen, error) {
-	tty, _ := NewStreamingTty(in, out, conn)
+func NewStreamingScreen(conn net.Conn) (Screen, error) {
+	tty, _ := NewStreamingTty(conn)
 	return NewTerminfoScreenFromTty(tty)
 }

@@ -19,7 +19,7 @@ type streamingTty struct {
 	onResize  func()     // callback for resize events
 }
 
-func NewStreamingTty(in chan []byte, out chan []byte, conn net.Conn) (Tty, *TelnetIO) {
+func NewStreamingTty(conn net.Conn) (Tty, *TelnetIO) {
 	s := &streamingTty{
 		Closer:  conn,
 		inPipe:  make(chan []byte, 1024),
