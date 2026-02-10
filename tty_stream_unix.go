@@ -39,11 +39,8 @@ func NewStreamingTty(conn net.Conn) Tty {
 		height:          24,
 	}
 
-	s.mtx.Lock()
 	// Ask client to send NAWS
 	s.Write([]byte{IAC, DO, NAWS})
-	s.mtx.Unlock()
-
 	return s
 }
 
@@ -135,15 +132,15 @@ func (s *streamingTty) parseNAWS(p []byte) []byte {
 						return nil
 					}
 					// decline other options
-					s.mtx.Lock()
 					s.Write([]byte{IAC, DONT, opt})
-					s.mtx.Unlock()
 				case DO:
 					// We won't do anything
-					s.mtx.Lock()
 					s.Write([]byte{IAC, WONT, opt})
-					s.mtx.Unlock()
 				}
+			default:
+				// ignore other commands for now
+				continue
+
 			}
 		} else {
 			// normal data byte, add to parsed buffer
