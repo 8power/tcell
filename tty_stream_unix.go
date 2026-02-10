@@ -66,7 +66,7 @@ func (s *streamingTty) Read(p []byte) (int, error) {
 }
 
 func (s *streamingTty) parseNAWS(p []byte) []byte {
-	parsedBuffer := make([]byte, len(p))
+	parsedBuffer := make([]byte, 0)
 	// read p as a stream of bytes, looking for IAC sequences
 	reader := bytes.NewReader(p)
 	for {
