@@ -40,7 +40,9 @@ func NewStreamingTty(conn net.Conn) Tty {
 	}
 
 	// Ask client to send NAWS
-	s.Write([]byte{IAC, DO, NAWS})
+	s.mtx.Lock()
+	s.ReadWriteCloser.Write([]byte{IAC, DO, NAWS})
+	s.mtx.Unlock()
 	return s
 }
 
@@ -50,7 +52,7 @@ func (s *streamingTty) Fd() uintptr {
 }
 
 func (s *streamingTty) Read(p []byte) (int, error) {
-	n, err := s.Read(p)
+	n, err := s.ReadWriteCloser.Read(p)
 	if err != nil && err != io.EOF {
 		return n, err
 	}
@@ -132,10 +134,14 @@ func (s *streamingTty) parseNAWS(p []byte) []byte {
 						return nil
 					}
 					// decline other options
-					s.Write([]byte{IAC, DONT, opt})
+					s.mtx.Lock()
+					s.ReadWriteCloser.Write([]byte{IAC, DONT, opt})
+					s.mtx.Unlock()
 				case DO:
 					// We won't do anything
-					s.Write([]byte{IAC, WONT, opt})
+					s.mtx.Lock()
+					s.ReadWriteCloser.Write([]byte{IAC, WONT, opt})
+					s.mtx.Unlock()
 				}
 			default:
 				// ignore other commands for now
@@ -217,5 +223,5 @@ func (s *streamingTty) Start() error {
 }
 
 func (s *streamingTty) Stop() error {
-	return s.Close()
+	return s.ReadWriteCloser.Close()
 }
