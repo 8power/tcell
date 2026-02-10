@@ -4,33 +4,47 @@
 package tcell
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"net"
 	"sync"
 )
 
+// Telnet IAC codes for NAWS (Negotiate About Window Size)
+// https://en.wikipedia.org/wiki/Telnet
+const (
+	IAC  = 255 // Sequence Initializer/Escape Character
+	SB   = 250 // Initiate the negotiation of a sub-service of a protocol mechanism
+	SE   = 240 // End of subnegotiation parameters
+	WILL = 251 // Informs other party that this party will use a protocol mechanism
+	WONT = 252 // Informs other party that this party will not use a protocol mechanism
+	DO   = 253 // Instruct other party to use a protocol mechanism
+	DONT = 254 // Instruct other party to not use a protocol mechanism
+	NAWS = 31  // Telnet option code for NAWS (Negotiate About Window Size)
+)
+
 type streamingTty struct {
-	io.Closer // e.g. SSH channel
-	inPipe    chan []byte
-	outPipe   chan []byte
-	rwMutex   sync.Mutex // mutex to protect access to rw
-	width     int        // character width handling
-	height    int        // character height handling
-	onResize  func()     // callback for resize events
+	io.ReadWriteCloser            // e.g. SSH channel
+	mtx                sync.Mutex // mutex to protect access to rw
+	width              int        // character width handling
+	height             int        // character height handling
+	onResize           func()     // callback for resize events
 }
 
-func NewStreamingTty(conn net.Conn) (Tty, *TelnetIO) {
+func NewStreamingTty(conn net.Conn) Tty {
 	s := &streamingTty{
-		Closer:  conn,
-		inPipe:  make(chan []byte, 1024),
-		outPipe: make(chan []byte, 1024),
-		width:   80,
-		height:  24,
+		ReadWriteCloser: conn,
+		width:           80,
+		height:          24,
 	}
 
-	tio := NewTelnetIO(conn, s)
+	s.mtx.Lock()
+	// Ask client to send NAWS
+	s.Write([]byte{IAC, DO, NAWS})
+	s.mtx.Unlock()
 
-	return s, tio
+	return s
 }
 
 func (s *streamingTty) Fd() uintptr {
@@ -39,40 +53,140 @@ func (s *streamingTty) Fd() uintptr {
 }
 
 func (s *streamingTty) Read(p []byte) (int, error) {
-	data, ok := <-s.inPipe
-	if !ok {
-		return 0, io.EOF
+	n, err := s.Read(p)
+	if err != nil && err != io.EOF {
+		return n, err
 	}
-	n := copy(p, data)
-	return n, nil
+	if n > 0 {
+		// Parse data for telent NAWS protocol
+		parsedData := s.parseNAWS(p)
+		copy(p, parsedData)
+		n = len(parsedData)
+	}
+	return n, err
+}
+
+func (s *streamingTty) parseNAWS(p []byte) []byte {
+	parsedBuffer := make([]byte, len(p))
+	// read p as a stream of bytes, looking for IAC sequences
+	reader := bytes.NewReader(p)
+	for {
+		b, err := reader.ReadByte()
+		if err != nil {
+			break // EOF or error
+		}
+		if b == IAC {
+			// handle IAC sequence (e.g. NAWS)
+			// read next bytes to determine command and option
+			cmd, err := reader.ReadByte()
+			if err != nil {
+				break
+			}
+			switch cmd {
+			case SB:
+				opt, err := reader.ReadByte()
+				if err != nil {
+					break
+				}
+				if opt == NAWS {
+					// read width and height
+					wh := make([]byte, 4)
+					if _, err := io.ReadFull(reader, wh); err != nil {
+						break
+					}
+					width := int(wh[0])<<8 | int(wh[1])
+					height := int(wh[2])<<8 | int(wh[3])
+					s.SetSize(width, height)
+					// consume IAC SE
+					if _, err := reader.ReadByte(); err != nil {
+						break
+					}
+					if _, err := reader.ReadByte(); err != nil {
+						break
+					}
+				} else {
+					// skip unknown SB option until IAC SE
+					for {
+						b, err := reader.ReadByte()
+						if err != nil {
+							break
+						}
+						if b == IAC {
+							next, err := reader.ReadByte()
+							if err != nil {
+								break
+							}
+							if next == SE {
+								break // end of subnegotiation
+							}
+						}
+					}
+				}
+			case WILL, WONT, DO, DONT:
+				// read option byte
+				opt, err := reader.ReadByte()
+				if err != nil {
+					break
+				}
+				switch cmd {
+				case WILL:
+					if opt == NAWS {
+						// client will send NAWS, fine
+						return nil
+					}
+					// decline other options
+					s.mtx.Lock()
+					s.Write([]byte{IAC, DONT, opt})
+					s.mtx.Unlock()
+				case DO:
+					// We won't do anything
+					s.mtx.Lock()
+					s.Write([]byte{IAC, WONT, opt})
+					s.mtx.Unlock()
+				}
+			}
+		} else {
+			// normal data byte, add to parsed buffer
+			parsedBuffer = append(parsedBuffer, b)
+		}
+	}
+	return parsedBuffer
 }
 
 func (s *streamingTty) Write(p []byte) (int, error) {
-	buf := make([]byte, len(p))
-	copy(buf, p)
-	select {
-	case s.outPipe <- buf:
-		return len(p), nil
-	default:
-		return 0, io.ErrShortWrite
+	// Escape IAC bytes in output
+	escapedData := make([]byte, 0, len(p)*2)
+	for _, b := range p {
+		if b == IAC {
+			escapedData = append(escapedData, IAC) // double IAC for escaping
+		}
+		escapedData = append(escapedData, b)
 	}
+
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	n, err := s.ReadWriteCloser.Write(escapedData)
+	if err != nil {
+		return n, fmt.Errorf("failed to write to connection: %w", err)
+	}
+	return n, nil
 }
 
 func (s *streamingTty) Close() error {
-	return s.Closer.Close()
+	return s.Close()
 }
 
 // Window size & signals (you adapt to the exact v2 Tty API):
 
 func (s *streamingTty) GetSize() (int, int, error) {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 	return s.width, s.height, nil
 }
 
 func (s *streamingTty) NotifyResize(f func()) {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 	s.onResize = f
 }
 
@@ -80,11 +194,11 @@ func (s *streamingTty) SetSize(w, h int) {
 	if w <= 0 || h <= 0 {
 		return // ignore invalid sizes
 	}
-	s.rwMutex.Lock()
+	s.mtx.Lock()
 	changed := s.width != w || s.height != h
 	s.width = w
 	s.height = h
-	s.rwMutex.Unlock()
+	s.mtx.Unlock()
 	if changed {
 		if s.onResize != nil {
 			s.onResize() // Call the callback directly; it should be safe to do so.
@@ -94,7 +208,6 @@ func (s *streamingTty) SetSize(w, h int) {
 
 func (s *streamingTty) Drain() error {
 	// Read all available input
-
 	return nil
 }
 

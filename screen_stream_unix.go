@@ -8,6 +8,6 @@ import (
 )
 
 func NewStreamingScreen(conn net.Conn) (Screen, error) {
-	tty, _ := NewStreamingTty(conn)
+	tty := NewStreamingTty(conn)
 	return NewTerminfoScreenFromTty(tty)
 }
