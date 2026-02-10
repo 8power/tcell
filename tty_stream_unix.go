@@ -56,12 +56,14 @@ func (s *streamingTty) Read(p []byte) (int, error) {
 	if err != nil && err != io.EOF {
 		return n, err
 	}
-	if n > 0 {
-		// Parse data for telent NAWS protocol
-		parsedData := s.parseNAWS(p)
-		copy(p, parsedData)
-		n = len(parsedData)
-	}
+	/*
+		if n > 0 {
+			// Parse data for telent NAWS protocol
+			parsedData := s.parseNAWS(p)
+			copy(p, parsedData)
+			n = len(parsedData)
+		}
+	*/
 	return n, err
 }
 
