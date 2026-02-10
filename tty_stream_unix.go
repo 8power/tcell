@@ -176,7 +176,7 @@ func (s *streamingTty) Write(p []byte) (int, error) {
 }
 
 func (s *streamingTty) Close() error {
-	return s.Close()
+	return s.ReadWriteCloser.Close()
 }
 
 // Window size & signals (you adapt to the exact v2 Tty API):
