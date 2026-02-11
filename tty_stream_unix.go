@@ -21,7 +21,12 @@ const (
 	WONT = 252 // Informs other party that this party will not use a protocol mechanism
 	DO   = 253 // Instruct other party to use a protocol mechanism
 	DONT = 254 // Instruct other party to not use a protocol mechanism
-	NAWS = 31  // Telnet option code for NAWS (Negotiate About Window Size)
+
+	// Options
+	ECHO     = 1  // Telnet option code for ECHO
+	SGA      = 3  // Telnet option code for SGA (Suppress Go Ahead)
+	LINEMODE = 34 // Telnet option code for LINEMODE
+	NAWS     = 31 // Telnet option code for NAWS (Negotiate About Window Size)
 )
 
 type streamingTty struct {
@@ -39,9 +44,12 @@ func NewStreamingTty(conn net.Conn) Tty {
 		height:          24,
 	}
 
-	// Ask client to send NAWS
+	// Ask client to send NAWS, and act like a tty.
 	s.mtx.Lock()
 	s.ReadWriteCloser.Write([]byte{IAC, DO, NAWS})
+	s.ReadWriteCloser.Write([]byte{IAC, DO, ECHO})
+	s.ReadWriteCloser.Write([]byte{IAC, DO, SGA})
+	s.ReadWriteCloser.Write([]byte{IAC, DONT, LINEMODE})
 	s.mtx.Unlock()
 	return s
 }
@@ -129,14 +137,16 @@ func (s *streamingTty) parseNAWS(p []byte) []byte {
 				}
 				switch cmd {
 				case WILL:
-					if opt == NAWS {
-						// client will send NAWS, fine
+					switch opt {
+					case NAWS, ECHO, SGA:
 						continue
+
+					default:
+						// decline other options
+						s.mtx.Lock()
+						s.ReadWriteCloser.Write([]byte{IAC, DONT, opt})
+						s.mtx.Unlock()
 					}
-					// decline other options
-					s.mtx.Lock()
-					s.ReadWriteCloser.Write([]byte{IAC, DONT, opt})
-					s.mtx.Unlock()
 				case DO:
 					// We won't do anything
 					s.mtx.Lock()
