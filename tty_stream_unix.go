@@ -47,8 +47,8 @@ func NewStreamingTty(conn net.Conn) Tty {
 	// Ask client to send NAWS, and act like a tty.
 	s.mtx.Lock()
 	s.ReadWriteCloser.Write([]byte{IAC, DO, NAWS})
-	s.ReadWriteCloser.Write([]byte{IAC, DO, ECHO})
-	s.ReadWriteCloser.Write([]byte{IAC, DO, SGA})
+	s.ReadWriteCloser.Write([]byte{IAC, WILL, ECHO})
+	s.ReadWriteCloser.Write([]byte{IAC, WILL, SGA})
 	s.ReadWriteCloser.Write([]byte{IAC, DONT, LINEMODE})
 	s.mtx.Unlock()
 	return s
@@ -138,7 +138,11 @@ func (s *streamingTty) parseNAWS(p []byte) []byte {
 				switch cmd {
 				case WILL:
 					switch opt {
-					case NAWS, ECHO, SGA:
+					case NAWS:
+						continue
+					case ECHO:
+						continue
+					case SGA:
 						continue
 
 					default:
